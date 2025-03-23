@@ -1,11 +1,12 @@
 import streamlit as st
 import pandas as pd
-import pytesseract
+import easyocr
 from PIL import Image
 import re
 import os
 from datetime import date
 
+# Configuração da página
 st.set_page_config(page_title="Painel de Transporte", page_icon="🧾", layout="wide")
 
 CSV_FILE = "abastecimentos.csv"
@@ -20,8 +21,9 @@ imagem = st.file_uploader("Envie uma imagem do cupom fiscal", type=["jpg", "jpeg
 
 if imagem:
     st.image(imagem, caption="Cupom enviado", use_container_width=True)
-    img = Image.open(imagem)
-    texto = pytesseract.image_to_string(img, lang="por")
+    reader = easyocr.Reader(['pt'], gpu=False)
+    resultado = reader.readtext(Image.open(imagem), detail=0, paragraph=True)
+    texto = "\n".join(resultado)
 
     st.markdown("### Texto lido:")
     st.code(texto)
@@ -36,8 +38,7 @@ if imagem:
     valor_detectado = max(valores_float) if valores_float else 0.0
 
     # Extração do local
-    linhas = texto.splitlines()
-    local_linha = next((linha for linha in linhas if any(palavra in linha.lower() for palavra in ["posto", "avenida", "rua", "rodovia", "bairro"])), "")
+    local_linha = next((linha for linha in resultado if any(p in linha.lower() for p in ["posto", "avenida", "rua", "rodovia", "bairro"])), "")
     local_detectado = local_linha.strip()
 
     # Formulário de confirmação
