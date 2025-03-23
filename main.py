@@ -19,23 +19,22 @@ st.markdown("""
         max-width: 100%;
     }
 
-    .banner {
+    .topbar {
         display: flex;
-        justify-content: center;
-        margin-bottom: 20px;
+        align-items: center;
+        margin-bottom: 30px;
     }
 
-    .banner img {
-        max-width: 320px;
-        border-radius: 16px;
-        box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.6);
+    .logo {
+        max-height: 50px;
+        margin-right: 15px;
+        border-radius: 12px;
+        box-shadow: 0px 2px 6px rgba(0,0,0,0.5);
     }
 
     .app-title {
-        font-size: 34px;
-        font-weight: 700;
-        text-align: center;
-        margin-bottom: 30px;
+        font-size: 28px;
+        font-weight: 600;
         color: white;
     }
 
@@ -62,13 +61,15 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Banner com nome correto da imagem
-st.markdown('<div class="banner"><img src="https://raw.githubusercontent.com/Dedev33/App_Gerenciamento/main/banner.jpg.jpeg" alt="Hero Banner"></div>', unsafe_allow_html=True)
+# Topo com logo + título alinhado à esquerda
+st.markdown("""
+    <div class="topbar">
+        <img class="logo" src="https://raw.githubusercontent.com/Dedev33/App_Gerenciamento/main/banner.jpg.jpeg" alt="Logo">
+        <div class="app-title">Sistema de Controle de Transporte</div>
+    </div>
+""", unsafe_allow_html=True)
 
-# Título
-st.markdown('<div class="app-title">Sistema de Controle de Transporte</div>', unsafe_allow_html=True)
-
-# Cartões
+# Cartões de informação
 col1, col2, col3 = st.columns(3)
 
 with col1:
