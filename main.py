@@ -1,13 +1,11 @@
 import streamlit as st
 
-# Configuração da página
 st.set_page_config(
     page_title="Sistema de Controle",
     page_icon="🧾",
     layout="wide"
 )
 
-# Estilo visual refinado e elegante
 st.markdown("""
     <style>
     html, body, [class*="css"] {
@@ -64,13 +62,13 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Banner com imagem externa
-st.markdown('<div class="banner"><img src="https://raw.githubusercontent.com/Dedev33/App_Gerenciamento/main/banner.jpg" alt="Hero Banner"></div>', unsafe_allow_html=True)
+# Banner com nome correto da imagem
+st.markdown('<div class="banner"><img src="https://raw.githubusercontent.com/Dedev33/App_Gerenciamento/main/banner.jpg.jpeg" alt="Hero Banner"></div>', unsafe_allow_html=True)
 
-# Título principal
+# Título
 st.markdown('<div class="app-title">Sistema de Controle de Transporte</div>', unsafe_allow_html=True)
 
-# Cartões com métricas
+# Cartões
 col1, col2, col3 = st.columns(3)
 
 with col1:
