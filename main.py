@@ -29,52 +29,54 @@ if imagem:
     resultado = reader.readtext(img, detail=0, paragraph=True)
 
     texto_lido = "\n".join(resultado)
-
     st.markdown("### 🧠 Texto lido do cupom:")
     st.code(texto_lido)
 
-    # Buscar data
+    # Data (última data encontrada)
     datas = re.findall(r"\d{2}/\d{2}/\d{4}", texto_lido)
-    data_extraida = datas[0] if datas else date.today().strftime("%Y-%m-%d")
+    data_extraida = datas[-1] if datas else date.today().strftime("%Y-%m-%d")
 
-    # Palavras que indicam valor correto
-    palavras_chave = ["total", "valor total", "total a pagar", "valor pago", "pagamento", "à pagar", "total final", "valor"]
-
-    # Palavras a evitar
-    palavras_ruins = ["hora", "troco", "cpf", "cnpj", "subtotal"]
-
+    # Valor total
     valor_extraido = 0.0
+    palavras_chave_valor = ["total", "valor total", "total a pagar", "valor pago", "pagamento", "à pagar", "total final", "vl.total"]
+    palavras_ruins = ["hora", "troco", "cpf", "cnpj", "subtotal"]
 
     for linha in resultado:
         linha_min = linha.lower()
-
-        if any(ruim in linha_min for ruim in palavras_ruins):
-            continue  # pula linhas ruins
-
-        if any(chave in linha_min for chave in palavras_chave):
+        if any(bad in linha_min for bad in palavras_ruins):
+            continue
+        if any(chave in linha_min for chave in palavras_chave_valor):
             if ':' in linha_min:
-                continue  # ignora horários
+                continue
             numeros = re.findall(r"\d+[.,]\d{2}", linha)
             if numeros:
                 valor_extraido = float(numeros[-1].replace(",", "."))
                 break
 
-    # Plano B: se nada foi achado de forma inteligente
+    # Plano B se não achou valor
     if valor_extraido == 0.0:
         valores = re.findall(r"\d+[.,]\d{2}", texto_lido)
-        valores = [v for v in valores if ":" not in v]  # ignora horários
+        valores = [v for v in valores if ":" not in v]
         valores_float = [float(v.replace(",", ".")) for v in valores]
         valor_extraido = max(valores_float) if valores_float else 0.0
+
+    # Litros abastecidos (número seguido de "L")
+    litros_extraido = 0.0
+    padrao_litros = re.findall(r"(\d+[.,]\d{3})\s*(l|litros)", texto_lido.lower())
+    if padrao_litros:
+        litros_bruto = padrao_litros[0][0]
+        litros_extraido = float(litros_bruto.replace(",", "."))
 
     # Exibe o que foi extraído
     st.markdown("### 📋 Informações extraídas:")
     st.write(f"🗓️ Data: `{data_extraida}`")
+    st.write(f"⛽ Litros: `{litros_extraido}`")
     st.write(f"💰 Valor total: `R$ {valor_extraido:,.2f}`")
 
     if st.button("💾 Salvar no sistema"):
         novo = {
             "data": data_extraida,
-            "litros": 0.0,
+            "litros": litros_extraido,
             "valor": valor_extraido,
             "local": ""
         }
@@ -85,7 +87,7 @@ if imagem:
 
         st.success("✅ Cupom salvo com sucesso!")
 
-# Exibição de registros
+# Exibição dos dados
 st.markdown("---")
 st.subheader("⛽ Abastecimentos Registrados")
 df = pd.read_csv(CSV_FILE)
