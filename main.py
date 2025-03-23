@@ -4,114 +4,61 @@ import easyocr
 from PIL import Image
 import re
 import os
-import requests
 from datetime import date
-from io import BytesIO
 
-# Config da página
+# Configuração da página
 st.set_page_config(page_title="Painel de Transporte", page_icon="🧾", layout="wide")
 
 CSV_FILE = "abastecimentos.csv"
 
-# Garante que o arquivo existe
 if not os.path.exists(CSV_FILE):
-    df_init = pd.DataFrame(columns=["data", "litros", "valor", "local", "link_nota"])
+    df_init = pd.DataFrame(columns=["data", "valor", "local"])
     df_init.to_csv(CSV_FILE, index=False)
 
-st.title("📸 Leitor Inteligente de Cupons Fiscais")
+st.title("📸 Leitor de Cupons Fiscais (OCR)")
 
-imagem = st.file_uploader("Envie a foto do cupom fiscal", type=["jpg", "jpeg", "png"])
-
-def extrair_qrcode_da_imagem(file):
-    api_url = "https://api.qrserver.com/v1/read-qr-code/"
-    files = {'file': file}
-    try:
-        resposta = requests.post(api_url, files=files, timeout=5)
-        if resposta.status_code == 200:
-            dados = resposta.json()
-            conteudo = dados[0]['symbol'][0]['data']
-            return conteudo
-    except:
-        return None
-    return None
+imagem = st.file_uploader("Envie uma imagem do cupom fiscal", type=["jpg", "jpeg", "png"])
 
 if imagem:
     st.image(imagem, caption="Cupom enviado", use_container_width=True)
+    reader = easyocr.Reader(['pt'], gpu=False)
+    texto = reader.readtext(Image.open(imagem), detail=0, paragraph=True)
+    texto_unido = "\n".join(texto)
 
-    with st.spinner("Lendo QR Code da nota fiscal..."):
-        qr_resultado = extrair_qrcode_da_imagem(imagem)
+    st.markdown("### Texto lido:")
+    st.code(texto_unido)
 
-    # Valores padrão
-    data_extraida = date.today().strftime("%Y-%m-%d")
-    litros_extraido = 0.0
-    valor_extraido = 0.0
+    # Extração da data
+    datas = re.findall(r"\d{2}/\d{2}/\d{4}", texto_unido)
+    data_detectada = datas[-1] if datas else date.today().strftime("%Y-%m-%d")
 
-    if qr_resultado and "http" in qr_resultado:
-        st.success("QR Code lido com sucesso!")
-        st.markdown(f"🔗 [Acessar nota fiscal]({qr_resultado})")
-    else:
-        st.warning("QR Code não encontrado. Utilizando OCR como plano B...")
+    # Extração do valor
+    valores = re.findall(r"\d+[.,]\d{2}", texto_unido)
+    valores_float = [float(v.replace(",", ".")) for v in valores if ":" not in v]
+    valor_detectado = max(valores_float) if valores_float else 0.0
 
-        # OCR via EasyOCR
-        reader = easyocr.Reader(['pt'], gpu=False)
-        img = Image.open(imagem)
-        resultado = reader.readtext(img, detail=0, paragraph=True)
-        texto_lido = "\n".join(resultado)
+    # Extração do local
+    local_linha = next((linha for linha in texto if any(palavra in linha.lower() for palavra in ["posto", "rodovia", "avenida", "bairro", "rua"])), "")
+    local_detectado = local_linha.strip()
 
-        st.markdown("### Texto lido via OCR:")
-        st.code(texto_lido)
+    # Formulário de confirmação
+    with st.form("confirmar_registro"):
+        st.subheader("✅ Confirmar Registro")
+        data_final = st.text_input("Data", value=data_detectada)
+        valor_final = st.number_input("Valor Total (R$)", value=valor_detectado, format="%.2f")
+        local_final = st.text_input("Local", value=local_detectado)
+        confirmar = st.form_submit_button("Aprovar e Salvar Registro")
 
-        # Data
-        datas = re.findall(r"\d{2}/\d{2}/\d{4}", texto_lido)
-        if datas:
-            data_extraida = datas[-1]
+        if confirmar:
+            df = pd.read_csv(CSV_FILE)
+            novo = {"data": data_final, "valor": valor_final, "local": local_final}
+            df = pd.concat([df, pd.DataFrame([novo])], ignore_index=True)
+            df.to_csv(CSV_FILE, index=False)
+            st.success("Registro salvo com sucesso!")
 
-        # Valor total
-        palavras_chave_valor = ["total", "valor total", "total a pagar", "valor pago", "pagamento", "à pagar", "total final", "vl.total"]
-        palavras_ruins = ["hora", "troco", "cpf", "cnpj", "subtotal"]
-        for linha in resultado:
-            linha_min = linha.lower()
-            if any(bad in linha_min for bad in palavras_ruins):
-                continue
-            if any(chave in linha_min for chave in palavras_chave_valor):
-                if ':' in linha_min:
-                    continue
-                numeros = re.findall(r"\d+[.,]\d{2}", linha)
-                if numeros:
-                    valor_extraido = float(numeros[-1].replace(",", "."))
-                    break
-
-        # Plano B para valor
-        if valor_extraido == 0.0:
-            valores = re.findall(r"\d+[.,]\d{2}", texto_lido)
-            valores = [v for v in valores if ":" not in v]
-            valores_float = [float(v.replace(",", ".")) for v in valores]
-            valor_extraido = max(valores_float) if valores_float else 0.0
-
-        # Litros
-        padrao_litros = re.findall(r"(\d+[.,]\d{3})\s*(l|litros)", texto_lido.lower())
-        if padrao_litros:
-            litros_bruto = padrao_litros[0][0]
-            litros_extraido = float(litros_bruto.replace(",", "."))
-
-    # Salva automaticamente os dados
-    novo = {
-        "data": data_extraida,
-        "litros": litros_extraido,
-        "valor": valor_extraido,
-        "local": "",
-        "link_nota": qr_resultado if qr_resultado else ""
-    }
-
-    df = pd.read_csv(CSV_FILE)
-    df = pd.concat([df, pd.DataFrame([novo])], ignore_index=True)
-    df.to_csv(CSV_FILE, index=False)
-
-    st.success("✅ Cupom registrado automaticamente!")
-
-# Seção: Abastecimentos Registrados
+# Exibição de registros
 st.markdown("---")
-st.subheader("⛽ Abastecimentos Registrados")
+st.subheader("⛽ Registros de Abastecimento")
 df = pd.read_csv(CSV_FILE)
 
 if df.empty:
@@ -119,33 +66,29 @@ if df.empty:
 else:
     st.dataframe(df[::-1], use_container_width=True)
 
-# Seção: Editar registro
-st.markdown("---")
-st.subheader("✏️ Editar Registro Existente")
-
-df = pd.read_csv(CSV_FILE)
-if not df.empty:
-    opcoes = [f"{i} - {row['data']} | R$ {row['valor']} | {row['litros']} L" for i, row in df.iterrows()]
-    escolha = st.selectbox("Selecione um registro para editar:", opcoes)
+    st.markdown("### ✏️ Editar ou 🗑️ Deletar Registro")
+    opcoes = [f"{i} - {row['data']} | R$ {row['valor']} | {row['local']}" for i, row in df.iterrows()]
+    escolha = st.selectbox("Escolha o registro:", opcoes)
 
     if escolha:
         idx = int(escolha.split(" - ")[0])
         registro = df.loc[idx]
 
-        with st.form("editar_registro"):
-            nova_data = st.text_input("Data", registro["data"])
-            novos_litros = st.number_input("Litros abastecidos", value=registro["litros"], format="%.3f")
-            novo_valor = st.number_input("Valor total (R$)", value=registro["valor"], format="%.2f")
-            novo_local = st.text_input("Local", registro["local"])
-            novo_link = st.text_input("Link da Nota", registro["link_nota"])
+        with st.form("editar_ou_deletar"):
+            nova_data = st.text_input("Data", value=registro["data"])
+            novo_valor = st.number_input("Valor (R$)", value=float(registro["valor"]), format="%.2f")
+            novo_local = st.text_input("Local", value=registro["local"])
+            editar = st.form_submit_button("💾 Salvar Alterações")
+            deletar = st.form_submit_button("🗑️ Deletar Registro")
 
-            salvar = st.form_submit_button("💾 Salvar Edição")
-
-            if salvar:
+            if editar:
                 df.at[idx, "data"] = nova_data
-                df.at[idx, "litros"] = novos_litros
                 df.at[idx, "valor"] = novo_valor
                 df.at[idx, "local"] = novo_local
-                df.at[idx, "link_nota"] = novo_link
                 df.to_csv(CSV_FILE, index=False)
-                st.success("✅ Registro atualizado com sucesso!")
+                st.success("Registro atualizado!")
+
+            if deletar:
+                df = df.drop(index=idx)
+                df.to_csv(CSV_FILE, index=False)
+                st.success("Registro deletado com sucesso!")
