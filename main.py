@@ -1,12 +1,11 @@
 import streamlit as st
 import pandas as pd
-import easyocr
+import pytesseract
 from PIL import Image
 import re
 import os
 from datetime import date
 
-# Configuração da página
 st.set_page_config(page_title="Painel de Transporte", page_icon="🧾", layout="wide")
 
 CSV_FILE = "abastecimentos.csv"
@@ -15,30 +14,30 @@ if not os.path.exists(CSV_FILE):
     df_init = pd.DataFrame(columns=["data", "valor", "local"])
     df_init.to_csv(CSV_FILE, index=False)
 
-st.title("📸 Leitor de Cupons Fiscais (OCR)")
+st.title("📸 Leitor de Cupons Fiscais")
 
 imagem = st.file_uploader("Envie uma imagem do cupom fiscal", type=["jpg", "jpeg", "png"])
 
 if imagem:
     st.image(imagem, caption="Cupom enviado", use_container_width=True)
-    reader = easyocr.Reader(['pt'], gpu=False)
-    texto = reader.readtext(Image.open(imagem), detail=0, paragraph=True)
-    texto_unido = "\n".join(texto)
+    img = Image.open(imagem)
+    texto = pytesseract.image_to_string(img, lang="por")
 
     st.markdown("### Texto lido:")
-    st.code(texto_unido)
+    st.code(texto)
 
     # Extração da data
-    datas = re.findall(r"\d{2}/\d{2}/\d{4}", texto_unido)
+    datas = re.findall(r"\d{2}/\d{2}/\d{4}", texto)
     data_detectada = datas[-1] if datas else date.today().strftime("%Y-%m-%d")
 
     # Extração do valor
-    valores = re.findall(r"\d+[.,]\d{2}", texto_unido)
+    valores = re.findall(r"\d+[.,]\d{2}", texto)
     valores_float = [float(v.replace(",", ".")) for v in valores if ":" not in v]
     valor_detectado = max(valores_float) if valores_float else 0.0
 
     # Extração do local
-    local_linha = next((linha for linha in texto if any(palavra in linha.lower() for palavra in ["posto", "rodovia", "avenida", "bairro", "rua"])), "")
+    linhas = texto.splitlines()
+    local_linha = next((linha for linha in linhas if any(palavra in linha.lower() for palavra in ["posto", "avenida", "rua", "rodovia", "bairro"])), "")
     local_detectado = local_linha.strip()
 
     # Formulário de confirmação
