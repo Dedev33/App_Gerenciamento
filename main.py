@@ -4,95 +4,117 @@ import easyocr
 from PIL import Image
 import re
 import os
+import requests
 from datetime import date
+from io import BytesIO
 
-# Configuração da página
+# Config da página
 st.set_page_config(page_title="Painel de Transporte", page_icon="🧾", layout="wide")
 
 CSV_FILE = "abastecimentos.csv"
 
 # Garante que o arquivo existe
 if not os.path.exists(CSV_FILE):
-    df_init = pd.DataFrame(columns=["data", "litros", "valor", "local"])
+    df_init = pd.DataFrame(columns=["data", "litros", "valor", "local", "link_nota"])
     df_init.to_csv(CSV_FILE, index=False)
 
-st.title("📸 Leitura Inteligente de Cupom Fiscal")
+st.title("📸 Leitor Inteligente de Cupons Fiscais")
 
-imagem = st.file_uploader("Envie uma foto do cupom (jpg, png)", type=["jpg", "jpeg", "png"])
+imagem = st.file_uploader("Envie a foto do cupom fiscal", type=["jpg", "jpeg", "png"])
+
+def extrair_qrcode_da_imagem(file):
+    api_url = "https://api.qrserver.com/v1/read-qr-code/"
+    files = {'file': file}
+    try:
+        resposta = requests.post(api_url, files=files, timeout=5)
+        if resposta.status_code == 200:
+            dados = resposta.json()
+            conteudo = dados[0]['symbol'][0]['data']
+            return conteudo
+    except:
+        return None
+    return None
 
 if imagem:
     st.image(imagem, caption="Cupom enviado", use_container_width=True)
 
-    # OCR
-    reader = easyocr.Reader(['pt'], gpu=False)
-    img = Image.open(imagem)
-    resultado = reader.readtext(img, detail=0, paragraph=True)
+    with st.spinner("Lendo QR Code da nota fiscal..."):
+        qr_resultado = extrair_qrcode_da_imagem(imagem)
 
-    texto_lido = "\n".join(resultado)
-    st.markdown("### 🧠 Texto lido do cupom:")
-    st.code(texto_lido)
-
-    # Data (última data encontrada)
-    datas = re.findall(r"\d{2}/\d{2}/\d{4}", texto_lido)
-    data_extraida = datas[-1] if datas else date.today().strftime("%Y-%m-%d")
-
-    # Valor total
-    valor_extraido = 0.0
-    palavras_chave_valor = ["total", "valor total", "total a pagar", "valor pago", "pagamento", "à pagar", "total final", "vl.total"]
-    palavras_ruins = ["hora", "troco", "cpf", "cnpj", "subtotal"]
-
-    for linha in resultado:
-        linha_min = linha.lower()
-        if any(bad in linha_min for bad in palavras_ruins):
-            continue
-        if any(chave in linha_min for chave in palavras_chave_valor):
-            if ':' in linha_min:
-                continue
-            numeros = re.findall(r"\d+[.,]\d{2}", linha)
-            if numeros:
-                valor_extraido = float(numeros[-1].replace(",", "."))
-                break
-
-    # Plano B se não achou valor
-    if valor_extraido == 0.0:
-        valores = re.findall(r"\d+[.,]\d{2}", texto_lido)
-        valores = [v for v in valores if ":" not in v]
-        valores_float = [float(v.replace(",", ".")) for v in valores]
-        valor_extraido = max(valores_float) if valores_float else 0.0
-
-    # Litros abastecidos (número seguido de "L")
+    # Valores padrão
+    data_extraida = date.today().strftime("%Y-%m-%d")
     litros_extraido = 0.0
-    padrao_litros = re.findall(r"(\d+[.,]\d{3})\s*(l|litros)", texto_lido.lower())
-    if padrao_litros:
-        litros_bruto = padrao_litros[0][0]
-        litros_extraido = float(litros_bruto.replace(",", "."))
+    valor_extraido = 0.0
 
-    # Exibe o que foi extraído
-    st.markdown("### 📋 Informações extraídas:")
-    st.write(f"🗓️ Data: `{data_extraida}`")
-    st.write(f"⛽ Litros: `{litros_extraido}`")
-    st.write(f"💰 Valor total: `R$ {valor_extraido:,.2f}`")
+    if qr_resultado and "http" in qr_resultado:
+        st.success("QR Code lido com sucesso!")
+        st.markdown(f"🔗 [Acessar nota fiscal]({qr_resultado})")
+    else:
+        st.warning("QR Code não encontrado. Utilizando OCR como plano B...")
 
-    if st.button("💾 Salvar no sistema"):
-        novo = {
-            "data": data_extraida,
-            "litros": litros_extraido,
-            "valor": valor_extraido,
-            "local": ""
-        }
+        # OCR via EasyOCR
+        reader = easyocr.Reader(['pt'], gpu=False)
+        img = Image.open(imagem)
+        resultado = reader.readtext(img, detail=0, paragraph=True)
+        texto_lido = "\n".join(resultado)
 
-        df = pd.read_csv(CSV_FILE)
-        df = pd.concat([df, pd.DataFrame([novo])], ignore_index=True)
-        df.to_csv(CSV_FILE, index=False)
+        st.markdown("### Texto lido via OCR:")
+        st.code(texto_lido)
 
-        st.success("✅ Cupom salvo com sucesso!")
+        # Data
+        datas = re.findall(r"\d{2}/\d{2}/\d{4}", texto_lido)
+        if datas:
+            data_extraida = datas[-1]
 
-# Exibição dos dados
+        # Valor total
+        palavras_chave_valor = ["total", "valor total", "total a pagar", "valor pago", "pagamento", "à pagar", "total final", "vl.total"]
+        palavras_ruins = ["hora", "troco", "cpf", "cnpj", "subtotal"]
+        for linha in resultado:
+            linha_min = linha.lower()
+            if any(bad in linha_min for bad in palavras_ruins):
+                continue
+            if any(chave in linha_min for chave in palavras_chave_valor):
+                if ':' in linha_min:
+                    continue
+                numeros = re.findall(r"\d+[.,]\d{2}", linha)
+                if numeros:
+                    valor_extraido = float(numeros[-1].replace(",", "."))
+                    break
+
+        # Plano B para valor
+        if valor_extraido == 0.0:
+            valores = re.findall(r"\d+[.,]\d{2}", texto_lido)
+            valores = [v for v in valores if ":" not in v]
+            valores_float = [float(v.replace(",", ".")) for v in valores]
+            valor_extraido = max(valores_float) if valores_float else 0.0
+
+        # Litros
+        padrao_litros = re.findall(r"(\d+[.,]\d{3})\s*(l|litros)", texto_lido.lower())
+        if padrao_litros:
+            litros_bruto = padrao_litros[0][0]
+            litros_extraido = float(litros_bruto.replace(",", "."))
+
+    # Salva automaticamente os dados
+    novo = {
+        "data": data_extraida,
+        "litros": litros_extraido,
+        "valor": valor_extraido,
+        "local": "",
+        "link_nota": qr_resultado if qr_resultado else ""
+    }
+
+    df = pd.read_csv(CSV_FILE)
+    df = pd.concat([df, pd.DataFrame([novo])], ignore_index=True)
+    df.to_csv(CSV_FILE, index=False)
+
+    st.success("✅ Cupom registrado automaticamente!")
+
+# Exibir registros
 st.markdown("---")
 st.subheader("⛽ Abastecimentos Registrados")
 df = pd.read_csv(CSV_FILE)
 
 if df.empty:
-    st.info("Nenhum abastecimento registrado ainda.")
+    st.info("Nenhum registro ainda.")
 else:
     st.dataframe(df[::-1], use_container_width=True)
