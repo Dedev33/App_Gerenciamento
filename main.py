@@ -109,7 +109,7 @@ if imagem:
 
     st.success("✅ Cupom registrado automaticamente!")
 
-# Exibir registros
+# Seção: Abastecimentos Registrados
 st.markdown("---")
 st.subheader("⛽ Abastecimentos Registrados")
 df = pd.read_csv(CSV_FILE)
@@ -118,3 +118,34 @@ if df.empty:
     st.info("Nenhum registro ainda.")
 else:
     st.dataframe(df[::-1], use_container_width=True)
+
+# Seção: Editar registro
+st.markdown("---")
+st.subheader("✏️ Editar Registro Existente")
+
+df = pd.read_csv(CSV_FILE)
+if not df.empty:
+    opcoes = [f"{i} - {row['data']} | R$ {row['valor']} | {row['litros']} L" for i, row in df.iterrows()]
+    escolha = st.selectbox("Selecione um registro para editar:", opcoes)
+
+    if escolha:
+        idx = int(escolha.split(" - ")[0])
+        registro = df.loc[idx]
+
+        with st.form("editar_registro"):
+            nova_data = st.text_input("Data", registro["data"])
+            novos_litros = st.number_input("Litros abastecidos", value=registro["litros"], format="%.3f")
+            novo_valor = st.number_input("Valor total (R$)", value=registro["valor"], format="%.2f")
+            novo_local = st.text_input("Local", registro["local"])
+            novo_link = st.text_input("Link da Nota", registro["link_nota"])
+
+            salvar = st.form_submit_button("💾 Salvar Edição")
+
+            if salvar:
+                df.at[idx, "data"] = nova_data
+                df.at[idx, "litros"] = novos_litros
+                df.at[idx, "valor"] = novo_valor
+                df.at[idx, "local"] = novo_local
+                df.at[idx, "link_nota"] = novo_link
+                df.to_csv(CSV_FILE, index=False)
+                st.success("✅ Registro atualizado com sucesso!")
