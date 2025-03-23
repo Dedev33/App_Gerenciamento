@@ -27,22 +27,36 @@ if imagem:
     # Inicializa o leitor OCR
     reader = easyocr.Reader(['pt'], gpu=False)
     img = Image.open(imagem)
-    texto = reader.readtext(img, detail=0, paragraph=True)
+    resultado = reader.readtext(img, detail=0, paragraph=True)
 
-    texto_lido = "\n".join(texto)
+    texto_lido = "\n".join(resultado)
 
     st.markdown("### 🧠 Texto lido do cupom:")
     st.code(texto_lido)
 
-    # Extrair data no formato DD/MM/YYYY
+    # 🔎 Buscando a data no texto (formato DD/MM/YYYY)
     datas = re.findall(r"\d{2}/\d{2}/\d{4}", texto_lido)
     data_extraida = datas[0] if datas else date.today().strftime("%Y-%m-%d")
 
-    # Extrair valores R$ (com ou sem vírgula)
-    valores = re.findall(r"\d+[.,]\d{2}", texto_lido)
-    valores_float = [float(v.replace(",", ".")) for v in valores]
-    valor_extraido = max(valores_float) if valores_float else 0.0
+    # 🔎 Buscando o valor correto com base em palavras-chave
+    valor_extraido = 0.0
+    palavras_chave = ["total", "valor total", "total a pagar", "valor pago", "pago", "pagar"]
 
+    for linha in resultado:
+        linha_min = linha.lower()
+        if any(palavra in linha_min for palavra in palavras_chave):
+            numeros = re.findall(r"\d+[.,]\d{2}", linha)
+            if numeros:
+                valor_extraido = float(numeros[-1].replace(",", "."))
+                break
+
+    # Plano B (caso não encontre por palavras-chave)
+    if valor_extraido == 0.0:
+        valores = re.findall(r"\d+[.,]\d{2}", texto_lido)
+        valores_float = [float(v.replace(",", ".")) for v in valores]
+        valor_extraido = max(valores_float) if valores_float else 0.0
+
+    # Exibindo o que foi extraído
     st.markdown("### 📋 Informações extraídas:")
     st.write(f"🗓️ Data: `{data_extraida}`")
     st.write(f"💰 Valor total: `R$ {valor_extraido:,.2f}`")
