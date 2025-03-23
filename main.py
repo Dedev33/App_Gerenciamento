@@ -1,97 +1,100 @@
 import streamlit as st
 
+# Configurações da página
 st.set_page_config(
-    page_title="Sistema de Controle",
+    page_title="Painel de Transporte",
     page_icon="🧾",
     layout="wide"
 )
 
+# Estilos com base no layout de referência
 st.markdown("""
     <style>
     html, body, [class*="css"] {
-        background-color: #0B0F1A;
-        color: #FFFFFF;
+        background: url('https://raw.githubusercontent.com/Dedev33/App_Gerenciamento/main/banner.jpg.jpeg') no-repeat center center fixed;
+        background-size: cover;
         font-family: 'Segoe UI', sans-serif;
+        color: white;
     }
 
     .block-container {
         padding: 2rem;
-        max-width: 100%;
+        background-color: rgba(11, 15, 26, 0.85);
+        border-radius: 16px;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.6);
     }
 
-    .topbar {
-        display: flex;
-        align-items: center;
-        margin-bottom: 30px;
-    }
-
-    .logo {
-        max-height: 50px;
-        margin-right: 15px;
-        border-radius: 12px;
-        box-shadow: 0px 2px 6px rgba(0,0,0,0.5);
-    }
-
-    .app-title {
-        font-size: 28px;
-        font-weight: 600;
-        color: white;
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 30px;
+        padding: 30px 10px;
     }
 
     .card {
-        background-color: #111827;
-        border-radius: 20px;
-        padding: 30px 20px;
-        box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.6);
+        background-color: #000000cc;
+        border: 3px solid white;
+        border-radius: 25px;
+        padding: 30px;
         text-align: center;
-        margin-bottom: 20px;
+        box-shadow: 0px 6px 15px rgba(0, 0, 0, 0.8);
     }
 
-    .label {
-        font-size: 18px;
-        color: #9CA3AF;
-        margin-bottom: 8px;
+    .card h3 {
+        font-size: 24px;
+        font-weight: bold;
+        margin-bottom: 15px;
+        color: white;
     }
 
-    .value {
+    .card p {
         font-size: 28px;
         font-weight: bold;
-        color: #E60012;
+        color: #00FF00;
+        margin: 0;
+    }
+
+    .card .icon {
+        font-size: 48px;
+        color: #00FF00;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# Topo com logo + título alinhado à esquerda
+# Conteúdo centralizado
+st.markdown("<div class='dashboard-grid'>", unsafe_allow_html=True)
+
+# Bloco 1 – Lucro Bruto
 st.markdown("""
-    <div class="topbar">
-        <img class="logo" src="https://raw.githubusercontent.com/Dedev33/App_Gerenciamento/main/banner.jpg.jpeg" alt="Logo">
-        <div class="app-title">Sistema de Controle de Transporte</div>
+    <div class='card'>
+        <h3>LUCRO BRUTO</h3>
+        <p>R$ 15.800,00</p>
     </div>
 """, unsafe_allow_html=True)
 
-# Cartões de informação
-col1, col2, col3 = st.columns(3)
+# Bloco 2 – Viagens Este Mês
+st.markdown("""
+    <div class='card'>
+        <h3>VIAGENS ESTE MÊS</h3>
+        <p>12</p>
+    </div>
+""", unsafe_allow_html=True)
 
-with col1:
-    st.markdown("""
-        <div class='card'>
-            <div class='label'>Lucro Bruto</div>
-            <div class='value'>R$ 15.800,00</div>
-        </div>
-    """, unsafe_allow_html=True)
+# Bloco 3 – Lucro Líquido
+st.markdown("""
+    <div class='card'>
+        <h3>LUCRO LÍQUIDO</h3>
+        <p>R$ 10.320,00</p>
+    </div>
+""", unsafe_allow_html=True)
 
-with col2:
-    st.markdown("""
-        <div class='card'>
-            <div class='label'>Lucro Líquido</div>
-            <div class='value'>R$ 10.320,00</div>
-        </div>
-    """, unsafe_allow_html=True)
+# Bloco 4 – Gráfico de crescimento (ícone)
+st.markdown("""
+    <div class='card'>
+        <h3>&nbsp;</h3>
+        <div class='icon'>📈</div>
+    </div>
+""", unsafe_allow_html=True)
 
-with col3:
-    st.markdown("""
-        <div class='card'>
-            <div class='label'>Gastos com Combustível</div>
-            <div class='value'>R$ 2.760,00</div>
-        </div>
-    """, unsafe_allow_html=True)
+# Fim da grade
+st.markdown("</div>", unsafe_allow_html=True)
