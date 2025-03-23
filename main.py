@@ -1,102 +1,60 @@
 import streamlit as st
+import pandas as pd
+import os
+from datetime import date
 
-# Configurações da página
+# Config da página
 st.set_page_config(
     page_title="Painel de Transporte",
     page_icon="🧾",
     layout="wide"
 )
 
-# CSS baseado na imagem enviada
-st.markdown("""
-    <style>
-    html, body, [class*="css"] {
-        background: url('https://raw.githubusercontent.com/Dedev33/App_Gerenciamento/main/banner.jpg.jpeg') no-repeat center center fixed;
-        background-size: cover;
-        font-family: 'Segoe UI', sans-serif;
-        color: white;
-    }
+# Arquivo de dados
+CSV_FILE = "abastecimentos.csv"
 
-    .overlay {
-        background-color: rgba(0, 0, 0, 0.6);
-        padding: 50px 0;
-        border-radius: 0;
-    }
+# Cria o arquivo se não existir
+if not os.path.exists(CSV_FILE):
+    df_init = pd.DataFrame(columns=["data", "litros", "valor", "local"])
+    df_init.to_csv(CSV_FILE, index=False)
 
-    .dashboard {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 40px;
-        max-width: 900px;
-        margin: 0 auto;
-    }
+# Formulário
+with st.form("form_abastecimento"):
+    st.subheader("➕ Registrar Abastecimento")
 
-    .card {
-        background-color: #000000cc;
-        border-radius: 40px;
-        border: 3px solid white;
-        padding: 40px;
-        text-align: center;
-        box-shadow: 0px 8px 16px rgba(0,0,0,0.8);
-    }
+    col1, col2 = st.columns(2)
 
-    .card h3 {
-        font-size: 24px;
-        font-weight: bold;
-        margin-bottom: 20px;
-        color: white;
-    }
+    with col1:
+        data_abastecimento = st.date_input("Data", value=date.today())
+        litros = st.number_input("Litros abastecidos", min_value=0.0, step=1.0, format="%.2f")
 
-    .card p {
-        font-size: 28px;
-        font-weight: bold;
-        color: #00FF00;
-        margin: 0;
-    }
+    with col2:
+        valor = st.number_input("Valor total (R$)", min_value=0.0, step=1.0, format="%.2f")
+        local = st.text_input("Local (opcional)")
 
-    .icon {
-        font-size: 50px;
-        color: #00FF00;
-        margin-top: 10px;
-    }
-    </style>
-""", unsafe_allow_html=True)
+    submitted = st.form_submit_button("Salvar")
 
-# Conteúdo com filtro escuro no fundo
-st.markdown("<div class='overlay'>", unsafe_allow_html=True)
-st.markdown("<div class='dashboard'>", unsafe_allow_html=True)
+    if submitted:
+        novo_registro = {
+            "data": data_abastecimento.strftime("%Y-%m-%d"),
+            "litros": litros,
+            "valor": valor,
+            "local": local
+        }
 
-# Card 1 – Lucro Bruto
-st.markdown("""
-    <div class='card'>
-        <h3>LUCRO BRUTO</h3>
-        <p>R$ 15.800,00</p>
-    </div>
-""", unsafe_allow_html=True)
+        df = pd.read_csv(CSV_FILE)
+        df = pd.concat([df, pd.DataFrame([novo_registro])], ignore_index=True)
+        df.to_csv(CSV_FILE, index=False)
 
-# Card 2 – Viagens Este Mês
-st.markdown("""
-    <div class='card'>
-        <h3>VIAGENS ESTE MÊS</h3>
-        <p>12</p>
-    </div>
-""", unsafe_allow_html=True)
+        st.success("✅ Abastecimento salvo com sucesso!")
 
-# Card 3 – Lucro Líquido
-st.markdown("""
-    <div class='card'>
-        <h3>LUCRO LÍQUIDO</h3>
-        <p>R$ 10.320,00</p>
-    </div>
-""", unsafe_allow_html=True)
+# Mostrar registros (opcional nesta etapa)
+st.markdown("---")
+st.subheader("⛽ Abastecimentos Registrados")
 
-# Card 4 – Gráfico
-st.markdown("""
-    <div class='card'>
-        <h3>&nbsp;</h3>
-        <div class='icon'>📈</div>
-    </div>
-""", unsafe_allow_html=True)
+df = pd.read_csv(CSV_FILE)
 
-st.markdown("</div>", unsafe_allow_html=True)
-st.markdown("</div>", unsafe_allow_html=True)
+if df.empty:
+    st.info("Nenhum abastecimento registrado ainda.")
+else:
+    st.dataframe(df[::-1], use_container_width=True)
